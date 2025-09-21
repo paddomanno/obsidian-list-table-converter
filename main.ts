@@ -118,6 +118,24 @@ export default class ListTableConvertPlugin extends Plugin {
 		let items = inputString.split("\n");
 
 		// remove bullets / numbers / to-do brackets
+		const startStrings = ["- [ ] ", "- [x] ", "- ", "* ", "+ ", "- "]; // check to-do boxes before checking the simple hyphen
+		items = items.map((line, _, items) => {
+			// numbered list?
+			if (line.match(/^\d+\.\s/gm)) {
+				return line.replace(/^\d+\.\s/gm, "");
+			}
+
+			// other kind of list?
+			for (let str of startStrings) {
+				if (line.startsWith(str)) {
+					line = line.replace(str, "");
+					// only remove the first finding so we don't remove actualy content by accident
+					return line;
+				}
+			}
+
+			return line;
+		});
 
 		// ignore empty lines until first text
 		while (items.first()?.trim() == "") {
