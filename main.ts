@@ -27,32 +27,22 @@ export default class ListTableConvertPlugin extends Plugin {
 			name: "Convert list to table",
 			editorCallback: (editor: Editor, _view: MarkdownView) => {
 				// only do stuff if we actually have a selection and only 1 selection
-				console.log("Selection:\n", editor.getSelection());
 				if (
 					!editor.somethingSelected() ||
 					editor.getSelection().replace("\n", "").trim() == ""
 				) {
-					console.debug("Nothing selected.");
 					return;
 				}
 				if (editor.listSelections().length != 1) {
-					console.debug(
-						"Too many selections: ",
-						String(editor.listSelections().length)
-					);
 					return;
 				}
 
 				const posBefore = editor.getCursor();
 
 				// extend selection to include the whole lines where anchor and head are
-				console.log(editor.listSelections()[0]);
 				const anchor = editor.listSelections()[0].anchor;
 				const head = editor.listSelections()[0].head;
 				if (anchor.line == head.line && anchor.ch == head.ch) {
-					console.debug(
-						"Nothing selected. Anchor and head are the same."
-					);
 					return;
 				}
 				if (anchor.line < head.line) {
@@ -77,7 +67,6 @@ export default class ListTableConvertPlugin extends Plugin {
 	private generateMarkdownTable(inputString: string): string {
 		let table = "";
 		const listItems: string[] = this.parseListItems(inputString);
-		console.debug("listItems:", listItems);
 
 		if (listItems.length == 0) return "";
 
@@ -85,7 +74,6 @@ export default class ListTableConvertPlugin extends Plugin {
 		const longestItem = listItems.reduce(function (a, b) {
 			return a.length > b.length ? a : b;
 		});
-		console.debug("longestItem:", longestItem);
 
 		// generate header row + hyphen row
 		const widthFirstCol = longestItem.length;
