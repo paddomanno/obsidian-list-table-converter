@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "list-table-converter",
+	"name": "List to table converter",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Simple command to convert a list (multi-line text or bullet list) to a table, one line per row",
+	"author": "paddomanno",
+	"authorUrl": "",
+	"fundingUrl": "",
 	"isDesktopOnly": false
 }

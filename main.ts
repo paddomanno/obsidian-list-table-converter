@@ -1,89 +1,183 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {
+	App,
+	Editor,
+	MarkdownView,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+} from "obsidian";
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+interface ListTableConvertPluginSettings {
+	leaveHeaderEmpty: boolean;
+	numberOfEmptyColumns: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+const DEFAULT_SETTINGS: ListTableConvertPluginSettings = {
+	leaveHeaderEmpty: true,
+	numberOfEmptyColumns: 1,
+};
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class ListTableConvertPlugin extends Plugin {
+	settings: ListTableConvertPluginSettings;
 
 	async onload() {
 		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
+			id: "list-to-table-convert",
+			name: "Convert list to table",
 			editorCallback: (editor: Editor, _view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+				// only do stuff if we actually have a selection and only 1 selection
+				console.log("Selection:\n", editor.getSelection());
+				if (
+					!editor.somethingSelected() ||
+					editor.getSelection().replace("\n", "").trim() == ""
+				) {
+					console.debug("Nothing selected.");
+					return;
 				}
-			}
-		});
+				if (editor.listSelections().length != 1) {
+					console.debug(
+						"Too many selections: ",
+						String(editor.listSelections().length)
+					);
+					return;
+				}
 
+				const posBefore = editor.getCursor();
+
+				// extend selection to include the whole lines where anchor and head are
+				console.log(editor.listSelections()[0]);
+				const anchor = editor.listSelections()[0].anchor;
+				const head = editor.listSelections()[0].head;
+				if (anchor.line == head.line && anchor.ch == head.ch) {
+					console.debug(
+						"Nothing selected. Anchor and head are the same."
+					);
+					return;
+				}
+				if (anchor.line < head.line) {
+					anchor.ch = 0;
+					head.ch = editor.getLine(head.line).length;
+				} else {
+					head.ch = 0;
+					anchor.ch = editor.getLine(anchor.line).length;
+				}
+
+				editor.setSelection(anchor, head);
+				editor.replaceSelection(
+					this.generateMarkdownTable(editor.getSelection())
+				);
+				editor.setCursor(posBefore.line, 2);
+			},
+		});
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
+	}
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+	private generateMarkdownTable(inputString: string): string {
+		let table = "";
+		const listItems: string[] = this.parseListItems(inputString);
+		console.debug("listItems:", listItems);
+
+		if (listItems.length == 0) return "";
+
+		// get longest item as it determines the width of the column
+		const longestItem = listItems.reduce(function (a, b) {
+			return a.length > b.length ? a : b;
 		});
+		console.debug("longestItem:", longestItem);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		// generate header row + hyphen row
+		const widthFirstCol = longestItem.length;
+		const widthSecondCol = 3;
+		const columnWidths = [widthFirstCol].concat(
+			Array(this.settings.numberOfEmptyColumns).fill(widthSecondCol)
+		);
+		if (this.settings.leaveHeaderEmpty) {
+			table += this.generateHeaderRow(columnWidths, " ");
+		} else {
+			table += this.generateSingleRowWithContent(
+				columnWidths,
+				listItems[0]
+			);
+		}
+		table += this.generateHeaderRow(columnWidths, "-");
+
+		// generate the remaining content rows
+		const remainingListItems = this.settings.leaveHeaderEmpty
+			? listItems
+			: listItems.slice(1);
+		for (const item of remainingListItems) {
+			table += this.generateSingleRowWithContent(columnWidths, item);
+		}
+
+		return table;
 	}
 
-	onunload() {
+	private parseListItems(inputString: string): string[] {
+		let items = inputString.split("\n");
 
+		// remove bullets / numbers / to-do brackets
+
+		// ignore empty lines until first text
+		while (items.first()?.trim() == "") {
+			items.shift();
+		}
+
+		// ignore empty lines at the end
+		while (items.last()?.trim() == "") {
+			items.pop();
+		}
+
+		return items;
 	}
+
+	private generateHeaderRow(colWidths: number[], char: string): string {
+		let row = "";
+
+		for (const colWidth of colWidths) {
+			row += "| ";
+			row += char.repeat(colWidth);
+			row += " ";
+		}
+		row += "|\n";
+
+		return row;
+	}
+
+	private generateSingleRowWithContent(
+		colWidths: number[],
+		text: string
+	): string {
+		let row = "";
+
+		// first col gets text
+		const colWidth = colWidths[0];
+		row += "| ";
+		row += text.padEnd(colWidth, " ");
+		row += " ";
+
+		// remaining cols empty
+		for (let i = 1; i < colWidths.length; i++) {
+			const colWidth = colWidths[i];
+			row += "| ";
+			row += " ".repeat(colWidth);
+			row += " ";
+		}
+
+		row += "|\n";
+
+		return row;
+	}
+
+	onunload() {}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
@@ -91,44 +185,51 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
 class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: ListTableConvertPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: ListTableConvertPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+			.setName("Leave header row empty")
+			.setDesc(
+				"Leave the header row empty by putting the frist item in the second row?"
+			)
+			.addToggle((toggleComponent) =>
+				toggleComponent
+					.setValue(this.plugin.settings.leaveHeaderEmpty)
+					.onChange(async (value) => {
+						this.plugin.settings.leaveHeaderEmpty = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Number of added empty columns")
+			.setDesc("How many empty columns should be added?")
+			.addText((textfield) => {
+				textfield.setPlaceholder(
+					String(DEFAULT_SETTINGS.numberOfEmptyColumns)
+				);
+				textfield.inputEl.type = "number";
+				textfield.setValue(
+					String(this.plugin.settings.numberOfEmptyColumns)
+				);
+				textfield.onChange(async (value) => {
+					if (value !== "") {
+						this.plugin.settings.numberOfEmptyColumns =
+							Number(value);
+						await this.plugin.saveSettings();
+					}
+				});
+			});
 	}
 }
