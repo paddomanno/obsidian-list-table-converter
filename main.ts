@@ -61,7 +61,9 @@ export default class ListTableConvertPlugin extends Plugin {
 			},
 		});
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(
+			new ListTableConvertPluginSettingTab(this.app, this)
+		);
 	}
 
 	private generateMarkdownTable(inputString: string): string {
@@ -191,7 +193,7 @@ export default class ListTableConvertPlugin extends Plugin {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
+class ListTableConvertPluginSettingTab extends PluginSettingTab {
 	plugin: ListTableConvertPlugin;
 
 	constructor(app: App, plugin: ListTableConvertPlugin) {
