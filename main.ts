@@ -25,45 +25,54 @@ export default class ListTableConvertPlugin extends Plugin {
 		this.addCommand({
 			id: "list-to-table-convert",
 			name: "Convert list to table",
-			editorCallback: (editor: Editor, _view: MarkdownView) => {
+			editorCheckCallback: (
+				checking: boolean,
+				editor: Editor,
+				_view: MarkdownView
+			) => {
 				// only do stuff if we actually have a selection and only 1 selection
 				if (
 					!editor.somethingSelected() ||
 					editor.getSelection().replace("\n", "").trim() == ""
 				) {
-					return;
+					return false;
 				}
 				if (editor.listSelections().length != 1) {
-					return;
+					return false;
 				}
-
-				const posBefore = editor.getCursor();
-
-				// extend selection to include the whole lines where anchor and head are
-				const anchor = editor.listSelections()[0].anchor;
-				const head = editor.listSelections()[0].head;
-				if (anchor.line == head.line && anchor.ch == head.ch) {
-					return;
+				if (!checking) {
+					this.performConvertCommand(editor);
 				}
-				if (anchor.line < head.line) {
-					anchor.ch = 0;
-					head.ch = editor.getLine(head.line).length;
-				} else {
-					head.ch = 0;
-					anchor.ch = editor.getLine(anchor.line).length;
-				}
-
-				editor.setSelection(anchor, head);
-				editor.replaceSelection(
-					this.generateMarkdownTable(editor.getSelection())
-				);
-				editor.setCursor(posBefore.line, 2);
 			},
 		});
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(
 			new ListTableConvertPluginSettingTab(this.app, this)
 		);
+	}
+
+	private performConvertCommand(editor: Editor) {
+		const posBefore = editor.getCursor();
+
+		// extend selection to include the whole lines where anchor and head are
+		const anchor = editor.listSelections()[0].anchor;
+		const head = editor.listSelections()[0].head;
+		if (anchor.line == head.line && anchor.ch == head.ch) {
+			return;
+		}
+		if (anchor.line < head.line) {
+			anchor.ch = 0;
+			head.ch = editor.getLine(head.line).length;
+		} else {
+			head.ch = 0;
+			anchor.ch = editor.getLine(anchor.line).length;
+		}
+
+		editor.setSelection(anchor, head);
+		editor.replaceSelection(
+			this.generateMarkdownTable(editor.getSelection())
+		);
+		editor.setCursor(posBefore.line, 2);
 	}
 
 	private generateMarkdownTable(inputString: string): string {
@@ -209,7 +218,7 @@ class ListTableConvertPluginSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Leave header row empty")
 			.setDesc(
-				"Leave the header row empty by putting the frist item in the second row?"
+				"Leave the header row empty by putting the first item in the second row?"
 			)
 			.addToggle((toggleComponent) =>
 				toggleComponent

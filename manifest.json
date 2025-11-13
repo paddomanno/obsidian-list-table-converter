@@ -1,11 +1,10 @@
 {
 	"id": "list-table-converter",
 	"name": "List to table converter",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"minAppVersion": "1.9.12",
 	"description": "Convert a list (or multi-line text) to a table.",
 	"author": "paddomanno",
-	"authorUrl": "",
-	"fundingUrl": "",
+	"authorUrl": "https://github.com/paddomanno",
 	"isDesktopOnly": false
 }
